@@ -1,0 +1,7 @@
+*.out
+garbage/
+test.py
+tutorial/
+__pycache__/
+
+*.swp
