@@ -1,6 +1,8 @@
 import simpy as sp
-from utils import t
-
+from .utils import t
+from .usagemanager import UsageManager as UM
+from collections import deque
+import time
 
 class FullQueue(Exception):
     def __init__(self, message):
@@ -11,13 +13,17 @@ class Server(sp.resources.resource.Resource):
     This class has been created to model a Virtualized Physical Machine.
     The capacity represents the number of Virtual Machines.
     """
-    def __init__(self, nv=None, capacity=4, length=10, name=None):
+    def __init__(self, env=None, capacity=4, length=10, name=None, um=None):
         # Set environment and capacity
         e = env if env else sp.Environment()
         super().__init__(e, capacity)
 
         # define a maximum length
         self._queue_len_max = length
+        
+        # setup capacity log
+        self._capacity_changes = deque([(time.time(), capacity)])  
+        self._usage_manager = um if um else UM(self, None)
 
         self._name = name
 
@@ -30,6 +36,7 @@ class Server(sp.resources.resource.Resource):
         """
         old_capacity = self._capacity
         self._capacity = new_capacity
+        
         if old_capacity > new_capacity:
             # The VM number has shrinked 
             # Nothing to do ? Hope so...
@@ -38,8 +45,15 @@ class Server(sp.resources.resource.Resource):
             """
             If we increased the number of VMs, we must check the queue
             This function iterates over the queue and allocates the 
-            available VMs to the first requests in queue
+            newly available VMs to the first requests in queue
             """
+            self._capacity_changes.appendleft(
+                    (
+                        time.time(),    # time the change occurred
+                        #old_capacity,   # capacity before the change
+                        new_capacity        # capacity after the change
+                    )
+                )
             self._trigger_put(None)
         
         return
@@ -62,8 +76,19 @@ class Server(sp.resources.resource.Resource):
             with super().request() as req:
                 print(f"[T: {t()}] {self}, alloc VM to {idn}.")
                 yield req
-                print(f"[T: {t()}] {self}, alloc VM OK {idn} for {processing_time}.")
-                yield env.timeout(processing_time)
+                with self._usage_manager.CPU_record_usage():
+                    print(f"[T: {t()}] {self}, alloc VM OK {idn} for {processing_time}.")
+                    yield self._env.timeout(processing_time)
+                if self.count > self.capacity:
+                    self._capacity_changes.appendleft(
+                        (
+                            time.time(),    # time the change occurred
+                            #old_capacity,  # capacity before the change
+                            self.count-1    # capacity after the change
+                        )
+                    )
+
+
             print(f"[T: {t()}] {self}, freed VM fr {idn}.")
         else:
             raise FullQueue(f"Server queue reached the maximum. {self}")
