@@ -5,7 +5,6 @@ from abc import abstractmethod, ABC
 class LoadBalancer(sp.resources.store.Store, ABC):
     def __init__(self, env, capacity=float('inf'), admission_rate=1):
         super().__init__(env, capacity)
-        self._servers = []
         self.admission_rate = admission_rate
         self._request_available = sp.events.Event(env).succeed()
 
@@ -21,16 +20,32 @@ class LoadBalancer(sp.resources.store.Store, ABC):
             )
         self._admission_rate = u_adm
 
-    def submit_request(self, request):
+    def __submit_request(self, request):
         e = self.put(request)
+        yield e
+        if not (e.triggered and e.ok):
+            self.active_process.fail(
+                SubmitRequestError(f"Impossible to store request {request}")
+            )
+            return
         if not self._request_available.triggered:
             self._request_available.succeed()
-        return e
 
+    def submit_request(self, request):
+        return self._env.process(self.__submit_request(request))
+
+    @abstractmethod
     def add_server(self, *servers):
-        self._servers = list(set([*self._servers, *servers]))
+        pass
+
+    @abstractmethod
+    def route(self, request):
+        pass
 
     def worker_loop(self):
+        if not self._request_available.triggered:
+            yield self._request_available
+
         while True:
             if self.items and len(self.items):
                 request = yield self.get()
@@ -41,6 +56,10 @@ class LoadBalancer(sp.resources.store.Store, ABC):
                 self._request_available = sp.events.Event(self._env)
                 yield self._request_available
 
-    @abstractmethod
-    def route(self, request):
-        pass
+    def start(self):
+        self._env.process(self.worker_loop())
+
+
+class SubmitRequestError(Exception):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
