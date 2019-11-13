@@ -1,8 +1,12 @@
 import simpy as sp
-from .utils import t
+from .utils import pretty_time as t
+from .utils import DebugPrint
 from .usagemanager import UsageManager as UM
 from collections import deque
 import time
+
+
+debug = DebugPrint()
 
 
 class FullQueue(Exception):
@@ -77,10 +81,10 @@ class Server(sp.resources.resource.Resource):
         """
         if (self.queue_len < self._queue_len_max):
             with super().request() as req:
-                print(f"[T: {t()}] {self}, alloc VM to {webrequest.id}.")
+                debug(f"[T: {t()}] {self}, alloc VM to {webrequest.id}.")
                 yield req
                 with self._usage_manager.CPU_record_usage():
-                    print(f"[T: {t()}] {self}, \
+                    debug(f"[T: {t()}] {self}, \
                         alloc VM OK {webrequest.id} for {webrequest.time}.")
                     yield self._env.timeout(webrequest.time)
                     webrequest.succeed(0)
@@ -93,14 +97,14 @@ class Server(sp.resources.resource.Resource):
                         )
                     )
 
-            print(f"[T: {t()}] {self}, freed VM fr {webrequest.id}.")
+            debug(f"[T: {t()}] {self}, freed VM fr {webrequest.id}.")
         else:
             fq = FullQueue(f"Server queue reached the maximum. {self}")
             webrequest.fail(fq)
 
         return
 
-    def request(self, webrequest):
+    def submit_request(self, webrequest):
         """
         This function creates the event of "acquired VM" and returns it.
         The caller can yield the returned event to sleep and to be woken up

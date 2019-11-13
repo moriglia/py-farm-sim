@@ -1,6 +1,7 @@
 import unittest
 from pyfarmsim.loadbalancer import LoadBalancer
 import simpy as sp
+from .config import rtEnvFastConfig
 
 
 class LoadBalancerSingleServer(LoadBalancer):
@@ -18,7 +19,7 @@ class LoadBalancerSingleServer(LoadBalancer):
 
 class Test_00_LoadBalancer(unittest.TestCase):
     def setUp(self):
-        self.env = sp.RealtimeEnvironment()
+        self.env = sp.RealtimeEnvironment(**rtEnvFastConfig)
 
     def tearDown(self):
         del self.env
@@ -29,9 +30,9 @@ class Test_00_LoadBalancer(unittest.TestCase):
             del lb
 
 
-class Test_01_LoadBalancerSingleServer(unittest.TestCase):
+class Test_05_LoadBalancerSingleServer(unittest.TestCase):
     def setUp(self):
-        self.env = sp.RealtimeEnvironment(factor=0.1, strict=False)
+        self.env = sp.RealtimeEnvironment(**rtEnvFastConfig)
         self.lbss = LoadBalancerSingleServer(self.env)
 
     def tearDown(self):
@@ -45,7 +46,14 @@ class Test_01_LoadBalancerSingleServer(unittest.TestCase):
         self.lbss.add_server(1)
         self.assertEqual(self.lbss.route('request'), (1, 'request'))
 
-    def test_01_worker_loop(self):
+    def test_05_amission_rate(self):
+        with self.assertRaises(ValueError):
+            self.lbss.admission_rate = -5
+
+        self.lbss.admission_rate = 10
+        self.assertEqual(self.lbss.admission_rate, 10)
+
+    def test_10_worker_loop(self):
         self.assertTrue(self.lbss._request_available.triggered)
 
         self.lbss.add_server("server")

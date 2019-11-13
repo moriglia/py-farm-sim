@@ -1,8 +1,24 @@
 import simpy as sp
+from . import server as pyfarmsrv
 from abc import abstractmethod, ABC
 
 
 class LoadBalancer(sp.resources.store.Store, ABC):
+    """
+    This class stores the incoming requests and forwards them at a rate
+    defined by the user. A user can specify the admission rate (the rate at
+    which requests are forwarded) by the its property setter.
+
+    Since there might be multiple servers to which to forward the requests,
+    the route() function is used to accomplish this task.
+
+    The route() function, as well as the add_server() functions are not defined.
+    The user must subclass the LoadBalancer to define them and exploit the
+    features of this class.
+
+    After subclassing and creating an instance of the subclass, in order to
+    start the request routing activity, the user must start() it.
+    """
     def __init__(self, env, capacity=float('inf'), admission_rate=1):
         super().__init__(env, capacity)
         self.admission_rate = admission_rate
@@ -58,6 +74,23 @@ class LoadBalancer(sp.resources.store.Store, ABC):
 
     def start(self):
         self._env.process(self.worker_loop())
+
+
+class LocalLoadBalancer(LoadBalancer):
+    """
+    This class forwards the requests to the only server it knows.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def add_server(self, server):
+        if not isinstance(server, pyfarmsrv.Server):
+            raise TypeError(f"{server} is not a Server")
+        self._server = server
+
+    def route(self, request):
+        # Raises AttributeError if add_server has not been called successfully
+        self._server.submit_request(request)
 
 
 class SubmitRequestError(Exception):
