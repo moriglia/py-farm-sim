@@ -16,7 +16,6 @@ def usage_ask(env, s, iterations, interval):
 
 
 def incoming_request(idn, env, server, processing_time):
-    yield env.timeout(processing_time)  # wait a bit before making request
     wr = WebRequest(env, processing_time, None)
     try:
         debug(f"[T: {t()}] Sending REQ {wr.id} to {server.name}")
@@ -49,7 +48,16 @@ def capacity_setter(env, server):
 class MockServer:
     def __init__(self):
         self._request_list = []
+        self._usage_manager = MockUsageManager()
 
     def submit_request(self, req):
         self._request_list.append(req)
         req.succeed()
+
+
+class MockUsageManager:
+    def __init__(self):
+        self._usage = random.random()
+
+    def usage_last_interval(self, interval):
+        return self._usage

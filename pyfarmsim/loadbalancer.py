@@ -12,7 +12,7 @@ class LoadBalancer(sp.resources.store.Store, ABC):
     Since there might be multiple servers to which to forward the requests,
     the route() function is used to accomplish this task.
 
-    The route() function, as well as the add_server() functions are not defined.
+    The route() function, as well as the add_server() functions are not defined
     The user must subclass the LoadBalancer to define them and exploit the
     features of this class.
 
@@ -91,6 +91,78 @@ class LocalLoadBalancer(LoadBalancer):
     def route(self, request):
         # Raises AttributeError if add_server has not been called successfully
         self._server.submit_request(request)
+
+
+class GlobalLoadBalancer(LoadBalancer):
+    TURNING = 0
+    LEAST_LOADED = 1
+
+    def __init__(self, route_config=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.route_config(route_config)
+
+    def add_server(self, *servers):
+        if hasattr(self, '_server'):
+            # Add new servers without diplicates
+            self._server = list(set([*self._server, *servers]))
+        else:
+            self._server = [*servers]
+
+        self._server_count = len(self._server)
+
+    def route(self, request):
+        """
+        This function must be implemented even though its implementation
+        will be replaced according to the route_config() function
+        """
+        pass
+
+    def route_turning(self, request):
+        """
+        Forward the request to the next server in turn among the _server list
+        """
+        if not hasattr(self, '_next_turn'):
+            self._next_turn = 0
+
+        # Submit request to next in turn
+        p = self._server[self._next_turn].submit_request(request)
+
+        # Advance next index
+        self._next_turn += 1
+        self._next_turn %= self._server_count
+
+        return p
+
+    def route_least_loaded(self, request):
+        """
+        Forward the request to the server with the minimum CPU utilization
+        among those that were added to the list.
+        """
+        # 2 will be certainly greater than the CPU utilization of any server
+        least_u = 2
+        candidate = -1
+
+        # Select the server with the least CPU utilization
+        for i in range(self._server_count):
+            current_u = self._server[i]._usage_manager.usage_last_interval(0.5)
+            if current_u < least_u:
+                # This condition will at least happen once for current_u < 1
+                # by definition of CPU utilization
+                least_u = current_u
+                candidate = i
+
+        return self._server[candidate].submit_request(request)
+
+    def route_config(self, rc):
+        """
+        Select the forwarding function amng those available
+        """
+        if rc == self.__class__.TURNING:
+            self.route = self.route_turning
+        elif rc == self.__class__.LEAST_LOADED:
+            self.route = self.route_least_loaded
+        else:
+            self.route = None
 
 
 class SubmitRequestError(Exception):
