@@ -3,7 +3,7 @@ from pyfarmsim.loadbalancer import GlobalLoadBalancer as GLL
 from pyfarmsim.webrequest import WebRequest
 import simpy as sp
 from .config import rtEnvFastConfig
-from .request_utils import MockServer
+from .request_utils import MockServer, MockLoadBalancer
 import random
 
 
@@ -97,3 +97,26 @@ class Test_20_GlobalLoadBalancer(unittest.TestCase):
 
         for i in range(50):
             self.assertTrue(wr[i] in gll._server[index[i]]._request_list)
+
+    def test_25_route_least_queue(self):
+        gll = GLL(env=self.env, route_config=GLL.LEAST_QUEUE)
+
+        loadbalancers = [MockLoadBalancer(i) for i in range(1, 50)]
+
+        # this will be the one will always be chosen
+        least_queue_load_balancer = MockLoadBalancer(0)
+
+        loadbalancers.append(least_queue_load_balancer)
+        random.shuffle(loadbalancers)
+
+        gll.add_server(*loadbalancers)
+        gll.start()
+
+        for i in range(50):
+            wr = WebRequest(self.env)
+            gll.submit_request(wr)
+
+            while not wr.triggered:
+                self.env.step()
+
+            self.assertEqual(wr, least_queue_load_balancer._request_list[-1])

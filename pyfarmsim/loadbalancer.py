@@ -36,6 +36,13 @@ class LoadBalancer(sp.resources.store.Store, ABC):
             )
         self._admission_rate = u_adm
 
+    @property
+    def queue_length(self):
+        if self.items:
+            return len(self.items)
+
+        return 0
+
     def __submit_request(self, request):
         e = self.put(request)
         yield e
@@ -96,12 +103,21 @@ class LocalLoadBalancer(LoadBalancer):
 class GlobalLoadBalancer(LoadBalancer):
     TURNING = 0
     LEAST_LOADED = 1
+    LEAST_QUEUE = 2
 
     def __init__(self, route_config=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.route_config(route_config)
 
     def add_server(self, *servers):
+        """
+        Note: the _server name may be misleading. The _server list can either
+        include Server instances or LoadBalancer instances. They must be
+        omogeneous anyway, for they are treated in either way according to
+        the route function that will be selected.
+
+        It is up to the user to use this properly.
+        """
         if hasattr(self, '_server'):
             # Add new servers without diplicates
             self._server = list(set([*self._server, *servers]))
@@ -119,7 +135,10 @@ class GlobalLoadBalancer(LoadBalancer):
 
     def route_turning(self, request):
         """
-        Forward the request to the next server in turn among the _server list
+        Forward the request to the next server in turn among the _server list.
+
+        Note: this works regardless of the _server items being servers or
+        local load balancers
         """
         if not hasattr(self, '_next_turn'):
             self._next_turn = 0
@@ -137,6 +156,8 @@ class GlobalLoadBalancer(LoadBalancer):
         """
         Forward the request to the server with the minimum CPU utilization
         among those that were added to the list.
+
+        Note: the _server list must contain only servers
         """
         # 2 will be certainly greater than the CPU utilization of any server
         least_u = 2
@@ -153,6 +174,23 @@ class GlobalLoadBalancer(LoadBalancer):
 
         return self._server[candidate].submit_request(request)
 
+    def route_least_queue(self, request):
+        """
+        Forward the request to the Load Balancer with the least queue length
+        """
+        # Any queue is shorter than infinite
+        least_queue = float('inf')
+        candidate = -1
+
+        # Find the Load Balancer with the least queue length
+        for i in range(self._server_count):
+            current_queue = self._server[i].queue_length
+            if current_queue < least_queue:
+                least_queue = current_queue
+                candidate = i
+
+        self._server[candidate].submit_request(request)
+
     def route_config(self, rc):
         """
         Select the forwarding function amng those available
@@ -161,6 +199,8 @@ class GlobalLoadBalancer(LoadBalancer):
             self.route = self.route_turning
         elif rc == self.__class__.LEAST_LOADED:
             self.route = self.route_least_loaded
+        elif rc == self.__class__.LEAST_QUEUE:
+            self.route = self.route_least_queue
         else:
             self.route = None
 
