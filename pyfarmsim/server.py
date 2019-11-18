@@ -2,7 +2,6 @@ import simpy as sp
 from .utils import pretty_time as t
 from .utils import DebugPrint
 from .usagemanager import UsageManager as UM
-from collections import deque
 import time
 
 
@@ -14,22 +13,19 @@ class FullQueue(Exception):
         super().__init__(message)
 
 
-class Server(sp.resources.resource.Resource):
+class Server(sp.resources.resource.Resource, UM):
     """
     This class has been created to model a Virtualized Physical Machine.
     The capacity represents the number of Virtual Machines.
     """
-    def __init__(self, env=None, capacity=4, length=10, name=None, um=None):
+    def __init__(self, env=None, capacity=4, length=10, name=None):
         # Set environment and capacity
         e = env if env else sp.Environment()
-        super().__init__(e, capacity)
+        sp.resources.resource.Resource.__init__(self, e, capacity)
+        UM.__init__(self, capacity)
 
         # define a maximum length
         self._queue_len_max = length
-
-        # setup capacity log
-        self._capacity_changes = deque([(time.time(), capacity)])
-        self._usage_manager = um if um else UM(self, None)
 
         self._name = name
 
@@ -80,10 +76,10 @@ class Server(sp.resources.resource.Resource):
         limitedness of the queue
         """
         if (self.queue_len < self._queue_len_max):
-            with super().request() as req:
+            with self.request() as req:
                 debug(f"[T: {t()}] {self}, alloc VM to {webrequest.id}.")
                 yield req
-                with self._usage_manager.CPU_record_usage():
+                with self.CPU_record_usage():
                     debug(f"[T: {t()}] {self}, \
                         alloc VM OK {webrequest.id} for {webrequest.time}.")
                     yield self._env.timeout(webrequest.time)

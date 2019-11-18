@@ -99,14 +99,14 @@ class Test_20_GlobalLoadBalancer(unittest.TestCase):
         gll.start()
 
         for s in self.servers:
-            s._usage_manager.usage = 1
+            s._usage = 1
 
         wr = []
         index = []
         for i in range(50):
             # Define which server should be the next chosen
             index.append(random.randrange(0, self.SERVER_COUNT))
-            gll._server[index[-1]]._usage_manager._usage = 0
+            gll._server[index[-1]]._usage = 0
 
             # Create the request we want to submit
             wr.append(WebRequest(self.env))
@@ -116,7 +116,7 @@ class Test_20_GlobalLoadBalancer(unittest.TestCase):
             while not wr[-1].triggered:
                 self.env.step()
 
-            gll._server[index[-1]]._usage_manager._usage = 1
+            gll._server[index[-1]]._usage = 1
 
         for i in range(50):
             self.assertTrue(wr[i] in gll._server[index[i]]._request_list)

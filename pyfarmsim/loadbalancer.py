@@ -183,7 +183,7 @@ class GlobalLoadBalancer(LoadBalancer):
 
         # Select the server with the least CPU utilization
         for i in range(self._server_count):
-            current_u = self._server[i]._usage_manager.usage_last_interval(
+            current_u = self._server[i].usage_last_interval(
                 self._usage_interval
             )
             if current_u < least_u:

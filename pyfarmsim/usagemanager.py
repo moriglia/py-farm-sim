@@ -4,9 +4,9 @@ from collections import deque
 
 
 class UsageManager:
-    def __init__(self, server, interval):
-        self._server = server
-        self._interval = interval
+    def __init__(self, capacity):
+        # setup capacity log
+        self._capacity_changes = deque([(time.time(), capacity)])
         self._exec_intervals = deque([])
 
     @contextmanager
@@ -43,7 +43,7 @@ class UsageManager:
                 """
                 If the CPU utilization ended before
                 """
-                break
+                continue
             """
             The remaining cases are those in which the computation started
             before the iterval end and finished after the interval start
@@ -68,12 +68,12 @@ class UsageManager:
 
         # get times in which the capacity has changed
         change_record_index = 0
-        change_record_len = len(self._server._capacity_changes)
+        change_record_len = len(self._capacity_changes)
         stop_i = stop
         while change_record_index < change_record_len:
-            change_record = self._server._capacity_changes[change_record_index]
+            change_record = self._capacity_changes[change_record_index]
 
-            if change_record[0] > stop:
+            if change_record[0] >= stop:
                 change_record_index += 1
                 continue
             if change_record[0] < start:
@@ -93,7 +93,7 @@ class UsageManager:
 
         if change_record_index < change_record_len:
             # this happens wen we go too far in the past
-            num_i = self._server._capacity_changes[change_record_index][1]
+            num_i = self._capacity_changes[change_record_index][1]
             usage += self.__usage_interval_constant_vm(
                 start,
                 stop_i,

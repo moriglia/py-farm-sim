@@ -11,7 +11,7 @@ debug = DebugPrint()
 def usage_ask(env, s, iterations, interval):
     for i in range(iterations):
         yield env.timeout(interval)
-        u = s._usage_manager.usage_last_interval(0.5)
+        u = s.usage_last_interval(0.5)
         debug(f"[T: {t()}] {s} CPU utilization: {u*100}%, sample {i} ")
 
 
@@ -48,19 +48,14 @@ def capacity_setter(env, server):
 class MockServer:
     def __init__(self):
         self._request_list = []
-        self._usage_manager = MockUsageManager()
-
-    def submit_request(self, req):
-        self._request_list.append(req)
-        req.succeed()
-
-
-class MockUsageManager:
-    def __init__(self):
         self._usage = random.random()
 
     def usage_last_interval(self, interval):
         return self._usage
+
+    def submit_request(self, req):
+        self._request_list.append(req)
+        req.succeed()
 
 
 class MockLoadBalancer:
