@@ -108,6 +108,24 @@ class GlobalLoadBalancer(LoadBalancer):
     def __init__(self, route_config=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.route_config(route_config)
+        self._usage_interval = 0.5
+
+    @property
+    def usage_interval(self):
+        return self._usage_interval
+
+    @usage_interval.setter
+    def usage_interval(self, interval):
+        if not isinstance(interval, float):
+            # If interval is neither a string representation of a number
+            # nor a number, this will raise TypeError
+            interval = float(interval)
+
+        if interval <= 0:
+            raise ValueError(f"interval parameter must be positive, \
+                but got {interval}")
+
+        self._usage_interval = interval
 
     def add_server(self, *servers):
         """
@@ -165,7 +183,9 @@ class GlobalLoadBalancer(LoadBalancer):
 
         # Select the server with the least CPU utilization
         for i in range(self._server_count):
-            current_u = self._server[i]._usage_manager.usage_last_interval(0.5)
+            current_u = self._server[i]._usage_manager.usage_last_interval(
+                self._usage_interval
+            )
             if current_u < least_u:
                 # This condition will at least happen once for current_u < 1
                 # by definition of CPU utilization

@@ -70,6 +70,29 @@ class Test_20_GlobalLoadBalancer(unittest.TestCase):
 
         del gll
 
+    def test_17_usage_interval(self):
+        gll = GLL(env=self.env)
+
+        with self.assertRaises(TypeError):
+            gll.usage_interval = [5.2, 8]
+
+        with self.assertRaises(ValueError):
+            gll.usage_interval = 'something'
+
+        with self.assertRaises(ValueError):
+            gll.usage_interval = '-5.3'
+
+        with self.assertRaises(ValueError):
+            gll.usage_interval = -5.3
+
+        try:
+            gll.usage_interval = '3.5'
+            gll.usage_interval = 0.2
+        except (ValueError, TypeError) as exc:
+            self.fail(str(exc))
+
+        self.assertEqual(gll.usage_interval, 0.2)
+
     def test_20_route_least_loaded(self):
         gll = GLL(env=self.env, route_config=GLL.LEAST_LOADED)
         gll.add_server(*self.servers)
