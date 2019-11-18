@@ -40,10 +40,25 @@ class Server(sp.resources.resource.Resource, UM):
         old_capacity = self._capacity
         self._capacity = new_capacity
 
-        if old_capacity > new_capacity:
-            # The VM number has shrinked
-            # Nothing to do ? Hope so...
-            pass
+        if old_capacity >= new_capacity:
+            """
+            When the VM will be released, they will not be reallocated
+            and the change will really take effect. But if there are free VMs
+            the capacity takes immediately effect
+            """
+            if self.count < old_capacity:
+                self._capacity_changes.appendleft(
+                    (
+                        # Time the change occurred
+                        time.time(),
+                        # If the least is count, then the new capacity takes
+                        # immediately effect
+                        # If the least is the new capacity, then the
+                        # capacity reduction takes effect from count
+                        # progressively down to the new_capacity
+                        max(new_capacity, self.count)
+                    )
+                )
         else:
             """
             If we increased the number of VMs, we must check the queue
@@ -53,8 +68,7 @@ class Server(sp.resources.resource.Resource, UM):
             self._capacity_changes.appendleft(
                     (
                         time.time(),    # time the change occurred
-                        # old_capacity,   # capacity before the change
-                        new_capacity        # capacity after the change
+                        new_capacity    # capacity after the change
                     )
                 )
             self._trigger_put(None)
@@ -88,7 +102,6 @@ class Server(sp.resources.resource.Resource, UM):
                     self._capacity_changes.appendleft(
                         (
                             time.time(),    # time the change occurred
-                            # old_capacity,  # capacity before the change
                             self.count-1    # capacity after the change
                         )
                     )

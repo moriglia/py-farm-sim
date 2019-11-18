@@ -10,6 +10,7 @@ from .request_utils import incoming_request, usage_ask, capacity_setter
 debug = DebugPrint()
 
 
+@unittest.skip("Old testing approach with a lot of debug print messages")
 class UsageTest(unittest.TestCase):
     def setUp(self):
         DebugPrint.DEBUG = True
