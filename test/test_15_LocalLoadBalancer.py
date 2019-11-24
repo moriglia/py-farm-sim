@@ -45,3 +45,11 @@ class Test_10_LocalLoadBalancer(unittest.TestCase):
                 self.env.step()
 
             self.assertEqual(wr, mockserver._request_list[-1])
+
+    def test_20_usage_last_interval(self):
+        self.assertEqual(self.llb.count, 1)
+        ms = MockServer()
+        ms._usage = 0.94
+        self.llb._server = ms
+
+        self.assertEqual(self.llb.usage_last_interval(0.2), 0.94)

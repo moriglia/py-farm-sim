@@ -99,6 +99,13 @@ class LocalLoadBalancer(LoadBalancer):
         # Raises AttributeError if add_server has not been called successfully
         self._server.submit_request(request)
 
+    def usage_last_interval(self, interval):
+        return self._server.usage_last_interval(interval)
+
+    @property
+    def count(self):
+        return 1
+
 
 class GlobalLoadBalancer(LoadBalancer):
     TURNING = 0
@@ -143,6 +150,20 @@ class GlobalLoadBalancer(LoadBalancer):
             self._server = [*servers]
 
         self._server_count = len(self._server)
+
+    def usage_last_interval(self, interval):
+        cumulative_usage = 0
+        for s in self._server:
+            cumulative_usage += s.usage_last_interval(interval) * s.count
+
+        return cumulative_usage / self.count
+
+    @property
+    def count(self):
+        x = 0
+        for s in self._server:
+            x += s.count
+        return x
 
     def route(self, request):
         """

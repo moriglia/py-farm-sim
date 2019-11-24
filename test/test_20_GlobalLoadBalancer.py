@@ -143,3 +143,23 @@ class Test_20_GlobalLoadBalancer(unittest.TestCase):
                 self.env.step()
 
             self.assertEqual(wr, least_queue_load_balancer._request_list[-1])
+
+    def test_30_usage_interval(self):
+        gll = GLL(env=self.env, route_config=GLL.LEAST_QUEUE)
+
+        mlb = []
+        expected_count = 0
+        expected_usage = 0
+        for i in range(1, 16):
+            mlb.append(
+                MockLoadBalancer(usage_last_interval=i/16, count=i)
+            )
+            expected_count += i
+            expected_usage += i**2/16
+
+        expected_usage /= expected_count
+
+        gll.add_server(*mlb)
+
+        self.assertEqual(gll.usage_last_interval(5), expected_usage)
+        self.assertEqual(gll.count, expected_count)

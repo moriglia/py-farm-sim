@@ -59,9 +59,11 @@ class MockServer:
 
 
 class MockLoadBalancer:
-    def __init__(self, queue_length=0):
+    def __init__(self, queue_length=0, usage_last_interval=0, count=0):
         self._queue_length = queue_length
         self._request_list = []
+        self._usage_last_interval = usage_last_interval
+        self._count = count
 
     @property
     def queue_length(self):
@@ -70,3 +72,10 @@ class MockLoadBalancer:
     def submit_request(self, request):
         self._request_list.append(request)
         request.succeed()
+
+    def usage_last_interval(self, interval):
+        return self._usage_last_interval
+
+    @property
+    def count(self):
+        return self._count
