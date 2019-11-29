@@ -28,6 +28,7 @@ class Test_10_Server(unittest.TestCase):
 
         self.assertTrue(isinstance(wr_expected_fail.value, FullQueue))
         wr_expected_fail.defused = True
+        self.assertEqual(self.s._fail_log[-1][1], wr_expected_fail.id)
 
         allreqs = sp.events.AllOf(self.e, wr)
         while not allreqs.processed:

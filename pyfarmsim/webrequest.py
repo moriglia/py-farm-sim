@@ -3,6 +3,7 @@ import simpy as sp
 
 class WebRequest(sp.Event):
     next_id = 0
+    request_list = []
 
     def __init__(self, env, time=0, timeout=0):
         self.id = self.__class__.next_id
@@ -11,6 +12,8 @@ class WebRequest(sp.Event):
         super().__init__(env)
         self._timeout = timeout
         self._time = time
+
+        self.__class__.request_list.append(self)
 
     @property
     def time(self):

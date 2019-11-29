@@ -17,6 +17,11 @@ class LoadBalancerSingleServer(LoadBalancer):
         return (self._server, request)
 
 
+class FakeRequest:
+    def __init__(self, id):
+        self.id = id
+
+
 class Test_00_LoadBalancer(unittest.TestCase):
     def setUp(self):
         self.env = sp.RealtimeEnvironment(**rtEnvFastConfig)
@@ -66,7 +71,8 @@ class Test_05_LoadBalancerSingleServer(unittest.TestCase):
         RANGE = 10
         for i in range(RANGE):
             # create submission requests
-            submissions.append(self.lbss.submit_request(i))
+            w = FakeRequest(i)
+            submissions.append(self.lbss.submit_request(w))
 
         anysubmitted = sp.events.AnyOf(self.env, submissions)
         while not (anysubmitted.processed and anysubmitted.ok):
@@ -85,5 +91,6 @@ class Test_05_LoadBalancerSingleServer(unittest.TestCase):
             self.env.step()
 
         # all submitted requests should be in the _routed_elements list
+        ids = [x.id for x in self.lbss._routed_elements]
         for i in range(RANGE):
-            self.assertTrue(i in self.lbss._routed_elements)
+            self.assertTrue(i in ids)

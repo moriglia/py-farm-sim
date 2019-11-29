@@ -23,7 +23,7 @@ class Test_10_UsageManager(unittest.TestCase):
         # DebugPrint.DEBUG = True
         for i in range(100):
             p = self.env.process(wait_for_timeout(self.env, i/10))
-            with um.CPU_record_usage():
+            with um.CPU_record_usage(i):
                 self.env.run(until=p)
 
             last_exec_interval = um._exec_intervals[0]
@@ -31,6 +31,7 @@ class Test_10_UsageManager(unittest.TestCase):
                 last_exec_interval[1] - last_exec_interval[0],
                 i/10
             )
+            self.assertEqual(last_exec_interval[2], i)
             debug(i/10, last_exec_interval)
         # DebugPrint.DEBUG = False
         del um

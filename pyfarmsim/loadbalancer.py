@@ -19,10 +19,17 @@ class LoadBalancer(sp.resources.store.Store, ABC):
     After subclassing and creating an instance of the subclass, in order to
     start the request routing activity, the user must start() it.
     """
-    def __init__(self, env, capacity=float('inf'), admission_rate=1):
+    def __init__(self, env, capacity=float('inf'), admission_rate=1,
+                 autostart=False):
         super().__init__(env, capacity)
         self.admission_rate = admission_rate
         self._request_available = sp.events.Event(env).succeed()
+
+        # Monitoring
+        self._submission_log = []
+
+        if autostart:
+            self.start()
 
     @property
     def admission_rate(self):
@@ -55,6 +62,7 @@ class LoadBalancer(sp.resources.store.Store, ABC):
             self._request_available.succeed()
 
     def submit_request(self, request):
+        self._submission_log.append((self._env.now, request.id))
         return self._env.process(self.__submit_request(request))
 
     @abstractmethod
@@ -81,6 +89,10 @@ class LoadBalancer(sp.resources.store.Store, ABC):
 
     def start(self):
         self._env.process(self.worker_loop())
+
+    @property
+    def submission_log(self):
+        return self._submission_log.copy()
 
 
 class LocalLoadBalancer(LoadBalancer):

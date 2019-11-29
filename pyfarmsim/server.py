@@ -28,6 +28,10 @@ class Server(sp.resources.resource.Resource, UM):
 
         self._name = name
 
+        # monitoring logs
+        self._submission_log = []
+        self._fail_log = []
+
     def __str__(self):
         return f"{self.name} usage: {self.count}/{self.capacity}VMs \
             {self.queue_len}/{self._queue_len_max}"
@@ -88,26 +92,31 @@ class Server(sp.resources.resource.Resource, UM):
         have a finite queue. In this generator I implemented the
         limitedness of the queue
         """
+
         if (self.queue_len < self._queue_len_max):
             with self.request() as req:
                 debug(f"[T: {t()}] {self}, alloc VM to {webrequest.id}.")
-                yield req
-                with self.CPU_record_usage():
+                yield req  # get a computational resource (VM or CPU)
+
+                with self.CPU_record_usage(webrequest.id):
+                    # While recording VM / CPU usage, serve the request
                     debug(f"[T: {t()}] {self}, \
                         alloc VM OK {webrequest.id} for {webrequest.time}.")
                     yield self._env.timeout(webrequest.time)
                     webrequest.succeed(0)
+
                 if self.count > self.capacity:
                     self._capacity_changes.appendleft(
                         (
                             self._env.now,    # time the change occurred
-                            self.count-1    # capacity after the change
+                            self.count-1      # capacity after the change
                         )
                     )
 
             debug(f"[T: {t()}] {self}, freed VM fr {webrequest.id}.")
         else:
             fq = FullQueue(f"Server queue reached the maximum. {self}")
+            self._fail_log.append((self._env.now, webrequest.id))
             webrequest.fail(fq)
 
         return
@@ -118,4 +127,16 @@ class Server(sp.resources.resource.Resource, UM):
         The caller can yield the returned event to sleep and to be woken up
         once the top of the queue is reached
         """
+
+        # Record submission
+        self._submission_log.append((self._env.now, webrequest.id))
+
         return self._env.process(self.__request_process(webrequest))
+
+    @property
+    def submission_log(self):
+        return self._submission_log.copy()
+
+    @property
+    def fail_log(self):
+        return self._fail_log.copy()

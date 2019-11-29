@@ -10,7 +10,7 @@ class UsageManager:
         self._env = env
 
     @contextmanager
-    def CPU_record_usage(self):
+    def CPU_record_usage(self, *args):
         l_ei = len(self._exec_intervals)
         self._exec_intervals.appendleft([self._env.now])
         try:
@@ -19,6 +19,9 @@ class UsageManager:
             new_l = len(self._exec_intervals)
             assert new_l >= l_ei
             self._exec_intervals[new_l - l_ei - 1].append(self._env.now)
+
+            # Save extra arguments to the log
+            self._exec_intervals[new_l - l_ei - 1] += list(args)
 
     def __usage_interval_constant_vm(self, start, stop, vm_count):
         if start > stop:
@@ -109,3 +112,11 @@ class UsageManager:
     def usage_last_interval(self, interval):
         t = self._env.now
         return self.__usage_interval(t - interval, t)
+
+    @property
+    def capacity_changes(self):
+        return self._capacity_changes.copy()
+
+    @property
+    def exec_intervals(self):
+        return self._exec_intervals.copy()
