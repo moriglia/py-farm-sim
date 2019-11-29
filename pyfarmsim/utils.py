@@ -18,7 +18,7 @@ class DebugPrint:
     DEBUG = False
 
     @classmethod
-    def __call__(cls, string):
+    def __call__(cls, *args):
         if cls.DEBUG:
-            print(string)
+            print(*args)
         return

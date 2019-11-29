@@ -1,28 +1,42 @@
 import unittest
-import time
 from pyfarmsim.usagemanager import UsageManager as UM
+from pyfarmsim.utils import DebugPrint
+import simpy as sp
 from collections import deque
+from .config import rtEnvFastConfig
+
+
+debug = DebugPrint()
 
 
 class Test_10_UsageManager(unittest.TestCase):
     def setUp(self):
+        self.env = sp.RealtimeEnvironment(**rtEnvFastConfig)
         pass
 
     def test_10_CPU_record_usage(self):
-        um = UM(4)
-        for i in range(5):
-            with um.CPU_record_usage():
-                time.sleep(0.5)
+        um = UM(4, self.env)
 
-            last_exec_interval = um._exec_intervals[-1]
-            self.assertGreaterEqual(
+        def wait_for_timeout(env, t):
+            yield env.timeout(t)
+
+        # DebugPrint.DEBUG = True
+        for i in range(100):
+            p = self.env.process(wait_for_timeout(self.env, i/10))
+            with um.CPU_record_usage():
+                self.env.run(until=p)
+
+            last_exec_interval = um._exec_intervals[0]
+            self.assertAlmostEqual(
                 last_exec_interval[1] - last_exec_interval[0],
-                0.5
+                i/10
             )
+            debug(i/10, last_exec_interval)
+        # DebugPrint.DEBUG = False
         del um
 
     def test_20__usage_interval_constant_vm(self):
-        um = UM(4)
+        um = UM(4, self.env)
 
         # non overlapping intervals
         um._exec_intervals = deque(
@@ -81,7 +95,7 @@ class Test_10_UsageManager(unittest.TestCase):
         del um
 
     def test_30_test_usage_interval(self):
-        um = UM(2)
+        um = UM(2, self.env)
         um._exec_intervals = deque(
             [
                 [1.0, 2.0],

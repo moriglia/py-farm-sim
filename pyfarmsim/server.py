@@ -2,7 +2,6 @@ import simpy as sp
 from .utils import pretty_time as t
 from .utils import DebugPrint
 from .usagemanager import UsageManager as UM
-import time
 
 
 debug = DebugPrint()
@@ -22,7 +21,7 @@ class Server(sp.resources.resource.Resource, UM):
         # Set environment and capacity
         e = env if env else sp.Environment()
         sp.resources.resource.Resource.__init__(self, e, capacity)
-        UM.__init__(self, capacity)
+        UM.__init__(self, capacity, e)
 
         # define a maximum length
         self._queue_len_max = length
@@ -50,7 +49,7 @@ class Server(sp.resources.resource.Resource, UM):
                 self._capacity_changes.appendleft(
                     (
                         # Time the change occurred
-                        time.time(),
+                        self._env.now,
                         # If the least is count, then the new capacity takes
                         # immediately effect
                         # If the least is the new capacity, then the
@@ -67,7 +66,7 @@ class Server(sp.resources.resource.Resource, UM):
             """
             self._capacity_changes.appendleft(
                     (
-                        time.time(),    # time the change occurred
+                        self._env.now,    # time the change occurred
                         new_capacity    # capacity after the change
                     )
                 )
@@ -101,7 +100,7 @@ class Server(sp.resources.resource.Resource, UM):
                 if self.count > self.capacity:
                     self._capacity_changes.appendleft(
                         (
-                            time.time(),    # time the change occurred
+                            self._env.now,    # time the change occurred
                             self.count-1    # capacity after the change
                         )
                     )

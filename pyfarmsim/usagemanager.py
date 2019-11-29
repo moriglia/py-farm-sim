@@ -1,24 +1,24 @@
-import time
 from contextlib import contextmanager
 from collections import deque
 
 
 class UsageManager:
-    def __init__(self, capacity):
+    def __init__(self, capacity, env):
         # setup capacity log
-        self._capacity_changes = deque([(time.time(), capacity)])
+        self._capacity_changes = deque([(env.now, capacity)])
         self._exec_intervals = deque([])
+        self._env = env
 
     @contextmanager
     def CPU_record_usage(self):
         l_ei = len(self._exec_intervals)
-        self._exec_intervals.appendleft([time.time()])
+        self._exec_intervals.appendleft([self._env.now])
         try:
             yield
         finally:
             new_l = len(self._exec_intervals)
             assert new_l >= l_ei
-            self._exec_intervals[new_l - l_ei - 1].append(time.time())
+            self._exec_intervals[new_l - l_ei - 1].append(self._env.now)
 
     def __usage_interval_constant_vm(self, start, stop, vm_count):
         if start > stop:
@@ -104,8 +104,8 @@ class UsageManager:
         return usage/(stop - start)
 
     def usage_since(self, since_time):
-        return self.__usage_interval(since_time, time.time())
+        return self.__usage_interval(since_time, self._env.now)
 
     def usage_last_interval(self, interval):
-        t = time.time()
+        t = self._env.now
         return self.__usage_interval(t - interval, t)
