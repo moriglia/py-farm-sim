@@ -8,20 +8,22 @@ class UsageManager:
         self._capacity_changes = deque([(env.now, capacity)])
         self._exec_intervals = deque([])
         self._env = env
+        self._start = env.now
 
     @contextmanager
     def CPU_record_usage(self, *args):
         l_ei = len(self._exec_intervals)
-        self._exec_intervals.appendleft([self._env.now])
+        start_usage = self._env.now
+        self._exec_intervals.appendleft((start_usage))
         try:
             yield
         finally:
             new_l = len(self._exec_intervals)
             assert new_l >= l_ei
-            self._exec_intervals[new_l - l_ei - 1].append(self._env.now)
+            data_update = (start_usage, self._env.now, *args)
 
-            # Save extra arguments to the log
-            self._exec_intervals[new_l - l_ei - 1] += list(args)
+            # Replace value, with complete record
+            self._exec_intervals[new_l - l_ei - 1] = data_update
 
     def __usage_interval_constant_vm(self, start, stop, vm_count):
         if start > stop:
@@ -39,10 +41,10 @@ class UsageManager:
                 interval we are interested in, skip it
                 """
                 continue
-            if len(record) > 1:
-                assert type(record[1]) == float, f"record[1] type is \
-                    {type(record[1])}\nrecord[1] = {record[1]}"
-            if ((len(record) == 2) and (record[1] < start)):
+            # if len(record) > 1:
+            #     assert type(record[1]) == float, f"record[1] type is \
+            #         {type(record[1])}\nrecord[1] = {record[1]}"
+            if ((len(record) > 1) and (record[1] < start)):
                 """
                 If the CPU utilization ended before
                 """
@@ -51,7 +53,7 @@ class UsageManager:
             The remaining cases are those in which the computation started
             before the iterval end and finished after the interval start
             """
-            stop_interval = min(stop, record[1]) if len(record) == 2 else stop
+            stop_interval = min(stop, record[1]) if len(record) > 1 else stop
             start_interval = max(start, record[0])
             sub_interval = stop_interval - start_interval
             assert sub_interval <= interval
@@ -112,6 +114,37 @@ class UsageManager:
     def usage_last_interval(self, interval):
         t = self._env.now
         return self.__usage_interval(t - interval, t)
+
+    def usage_samples(self, interval=0.5, stop=None):
+        interval_start = self._start
+        interval_stop = self._start + interval
+
+        if not stop:
+            if len(self._exec_intervals):
+                if len(self._exec_intervals[0]) > 1:
+                    stop = self._exec_intervals[0][1]
+                else:
+                    stop = self._exec_intervals[0][0]
+            else:
+                stop = self._env.now
+                ret_val = []
+                for x in range((stop - interval_start) // interval):
+                    ret_val += [(interval_start + x*interval, 0.0)]
+                return ret_val
+
+        usage_values = []
+        while interval_start < stop:
+            usage_values.append(
+                (
+                    interval_start,
+                    self.__usage_interval(interval_start, interval_stop)
+                )
+            )
+
+            interval_start += interval
+            interval_stop += interval
+
+        return usage_values
 
     @property
     def capacity_changes(self):

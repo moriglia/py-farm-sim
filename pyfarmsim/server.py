@@ -2,9 +2,20 @@ import simpy as sp
 from .utils import pretty_time as t
 from .utils import DebugPrint
 from .usagemanager import UsageManager as UM
+from functools import wraps
 
 
 debug = DebugPrint()
+
+
+def get_queue_monitor(fnc, srv, env):
+    @wraps(fnc)
+    def monitor(*args, **kwargs):
+        ret = fnc(*args, **kwargs)
+        srv._queue_log.append((env.now, srv.queue_len))
+        return ret
+
+    return monitor
 
 
 class FullQueue(Exception):
@@ -31,6 +42,13 @@ class Server(sp.resources.resource.Resource, UM):
         # monitoring logs
         self._submission_log = []
         self._fail_log = []
+        self._queue_log = []
+        for name in ['put', 'get', 'request', 'release']:
+            setattr(
+                self,
+                name,
+                get_queue_monitor(getattr(self, name), self, self._env)
+            )
 
     def __str__(self):
         return f"{self.name} usage: {self.count}/{self.capacity}VMs \
@@ -71,7 +89,7 @@ class Server(sp.resources.resource.Resource, UM):
             self._capacity_changes.appendleft(
                     (
                         self._env.now,    # time the change occurred
-                        new_capacity    # capacity after the change
+                        new_capacity      # capacity after the change
                     )
                 )
             self._trigger_put(None)
@@ -140,3 +158,7 @@ class Server(sp.resources.resource.Resource, UM):
     @property
     def fail_log(self):
         return self._fail_log.copy()
+
+    @property
+    def queue_log(self):
+        return self._queue_log.copy()

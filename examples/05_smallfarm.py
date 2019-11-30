@@ -4,6 +4,7 @@ from pyfarmsim.loadbalancer import GlobalLoadBalancer
 from pyfarmsim.webrequest import WebRequest
 import simpy as sp
 import random
+import csv
 
 random.seed(object())
 
@@ -19,6 +20,8 @@ gll = GlobalLoadBalancer(
 )
 
 gll.add_server(server_sautron, server_tenibres)
+gll.admission_rate = 5
+
 
 def request_generator(env, cloud_access, rate, number):
     for i in range(number):
@@ -27,8 +30,22 @@ def request_generator(env, cloud_access, rate, number):
         cloud_access.submit_request(wr)
         yield env.timeout(interval)
 
-REQUEST_PER_SECOND = 4
-REQUEST_NUMBER = 150
+
+REQUEST_PER_SECOND = 125
+REQUEST_NUMBER = 1000
 env.process(request_generator(env, gll, REQUEST_PER_SECOND, REQUEST_NUMBER))
 
 env.run()
+
+sautron_usage = server_sautron.usage_samples(interval=0.25)
+tenibres_usage = server_tenibres.usage_samples(interval=0.25)
+
+with open('05_smallfarm_sautron_usage.csv', 'w') as usage_file:
+    usage_writer = csv.writer(usage_file)
+    usage_writer.writerow(['Time','Sautron usage'])
+    usage_writer.writerows(sautron_usage)
+
+with open('05_smallfarm_tenibres_usage.csv', 'w') as usage_file:
+    usage_writer = csv.writer(usage_file)
+    usage_writer.writerow(['Time','Tenibres usage'])
+    usage_writer.writerows(tenibres_usage)
