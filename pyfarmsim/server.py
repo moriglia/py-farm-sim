@@ -121,7 +121,8 @@ class Server(sp.resources.resource.Resource, UM):
                     debug(f"[T: {t()}] {self}, \
                         alloc VM OK {webrequest.id} for {webrequest.time}.")
                     yield self._env.timeout(webrequest.time)
-                    webrequest.succeed(0)
+                    if not webrequest.triggered:
+                        webrequest.succeed(0)
 
                 if self.count > self.capacity:
                     self._capacity_changes.appendleft(

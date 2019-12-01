@@ -124,9 +124,9 @@ class GlobalLoadBalancer(LoadBalancer):
     LEAST_LOADED = 1
     LEAST_QUEUE = 2
 
-    def __init__(self, route_config=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, route_config=None, **kwargs):
         self.route_config(route_config)
+        super().__init__(*args, **kwargs)
         self._usage_interval = 0.5
 
     @property
