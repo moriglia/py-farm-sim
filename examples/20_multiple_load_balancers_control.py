@@ -96,6 +96,28 @@ def request_generator(env,
         env.process(waiter_process(requests[-1]))
 
 
+def server_controller(env, srv, completed):
+    while not completed.triggered:
+        yield env.timeout(0.5)
+        u = srv.usage_last_interval(0.5)
+        if u > 0.9:
+            srv.set_capacity(srv.capacity + 1)
+        elif u < 0.2 and srv.capacity > 1:
+            srv.set_capacity(srv.capacity - 1)
+
+def lb_controller(env, srv, lb, completed):
+    while not completed.triggered:
+        yield env.timeout(1)
+        qlen = srv.queue_len
+
+        if qlen > 30:
+            lb.admission_rate -= 1
+        elif qlen < 5 and lb.queue_length > 0:
+            lb.admission_rate += 1
+
+
+
+
 timeouts = [("Time", "Total Timeouts")]
 fullqueues = [("Time", "Total FullQueue Exceptions")]
 callback = partial(
@@ -106,15 +128,20 @@ callback = partial(
 RATE = 15
 NUM = 1000
 requests = []
-env.process(request_generator(env, gll, RATE, NUM, requests))
+generation_completed = env.process(request_generator(env, gll, RATE, NUM, requests))
+for i in range(4):
+    env.process(server_controller(env, srvs[i], generation_completed))
+    env.process(lb_controller(env, srvs[i], llbs[i], generation_completed))
 gll.start()
 env.run()
 
 for i in range(4):
     savecsv([("Time", f"Server {i}"), *srvs[i].queue_log],
-            f"10_multiple_lb_srv{i}.csv")
+            f"20_multiple_lb_srv{i}.csv")
     savecsv([("Time", f"Server {i}"), *srvs[i].usage_samples(interval=0.25)],
-            f"10_multiple_lb_srv{i}_usage.csv")
+            f"20_multiple_lb_srv{i}_usage.csv")
+    savecsv([("Time", f"Server {i}"), *srvs[i]._capacity_changes],
+            f"20_multiple_lb_srv{i}_capacity.csv")
 
-savecsv(timeouts, f"10_multiple_lb_wr_timeouts.csv")
-savecsv(fullqueues, f"10_multiple_lb_wr_fullqueues.csv")
+savecsv(timeouts, f"20_multiple_lb_wr_timeouts.csv")
+savecsv(fullqueues, f"20_multiple_lb_wr_fullqueues.csv")

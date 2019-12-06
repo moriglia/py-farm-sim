@@ -14,7 +14,7 @@ class UsageManager:
     def CPU_record_usage(self, *args):
         l_ei = len(self._exec_intervals)
         start_usage = self._env.now
-        self._exec_intervals.appendleft((start_usage))
+        self._exec_intervals.appendleft((start_usage,))
         try:
             yield
         finally:
@@ -26,7 +26,7 @@ class UsageManager:
             self._exec_intervals[new_l - l_ei - 1] = data_update
 
     def __usage_interval_constant_vm(self, start, stop, vm_count):
-        if start > stop:
+        if start >= stop:
             raise ValueError(f"start ({start}) \
                 must be smaller than stop ({stop})")
         if vm_count < 1:
@@ -65,7 +65,7 @@ class UsageManager:
 
     def __usage_interval(self, start, stop):
 
-        if start > stop:
+        if start >= stop:
             raise ValueError(f"start ({start}) \
                 must be smaller than stop ({stop})")
 
@@ -87,6 +87,7 @@ class UsageManager:
 
             start_i = change_record[0]
             num_i = change_record[1]
+            assert start_i < stop_i
             usage += self.__usage_interval_constant_vm(
                 start_i,
                 stop_i,
@@ -96,7 +97,7 @@ class UsageManager:
             stop_i = start_i
             change_record_index += 1
 
-        if change_record_index < change_record_len:
+        if change_record_index < change_record_len and start < stop_i:
             # this happens wen we go too far in the past
             num_i = self._capacity_changes[change_record_index][1]
             usage += self.__usage_interval_constant_vm(
